@@ -7,6 +7,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.Map;
 
@@ -15,7 +16,8 @@ import java.util.Map;
 public class ErrorHandler {
     @ExceptionHandler({MethodArgumentNotValidException.class,
             MissingServletRequestParameterException.class,
-            IllegalArgumentException.class})
+            MethodArgumentTypeMismatchException.class,
+            InvalidTimePeriodException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handlerValidation(final Exception e) {
         log.info("Завершен ошибкой", e);

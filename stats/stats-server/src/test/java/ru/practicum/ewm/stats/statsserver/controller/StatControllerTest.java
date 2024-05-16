@@ -12,6 +12,7 @@ import ru.practicum.ewm.stats.statsdto.EndpointHit;
 import ru.practicum.ewm.stats.statsserver.service.StatService;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -33,7 +34,7 @@ class StatControllerTest {
 
     @SneakyThrows
     @Test
-    void create_incorrectBody_error() {
+    void create_incorrectBody_exception() {
         final EndpointHit endpointHit = EndpointHit.builder()
                 .app("some-app")
                 .uri("some-uri")
@@ -52,10 +53,23 @@ class StatControllerTest {
 
     @SneakyThrows
     @Test
-    void getStats_withoutRequiredParameters_error() {
+    void getStats_withoutRequiredParameters_exception() {
         mockMvc.perform(get("/stats"))
                 .andExpect(status().isBadRequest());
 
-        verify(statService, never()).getStats(any(String.class), any(String.class), any(), any(Boolean.class));
+        verify(statService, never()).getStats(any(LocalDateTime.class), any(LocalDateTime.class),
+                any(), any(Boolean.class));
+    }
+
+    @SneakyThrows
+    @Test
+    void getStats_incorrectFormatRequiredParameters_exception() {
+        mockMvc.perform(get("/stats")
+                        .param("start", "2023-10-10 15-15-15")
+                        .param("end", "2023-10-20 15-15-15"))
+                .andExpect(status().isBadRequest());
+
+        verify(statService, never()).getStats(any(LocalDateTime.class), any(LocalDateTime.class),
+                any(), any(Boolean.class));
     }
 }

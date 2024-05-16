@@ -22,7 +22,7 @@ public interface JpaStatRepository extends JpaRepository<Stat, Long> {
             "ORDER BY COUNT(DISTINCT st.ip) DESC")
     Optional<List<ViewStats>> getStatsByUriAndUniqueIp(@Param("start") LocalDateTime start,
                                                        @Param("end") LocalDateTime end,
-                                                       @Param("uris") String[] uris);
+                                                       @Param("uris") List<String> uris);
 
     @Query("SELECT new ru.practicum.ewm.stats.statsdto.ViewStats(" +
             "st.app, " +
@@ -35,7 +35,7 @@ public interface JpaStatRepository extends JpaRepository<Stat, Long> {
             "ORDER BY COUNT(st.ip) DESC")
     Optional<List<ViewStats>> getStatsByUriAndNotUniqueIp(@Param("start") LocalDateTime start,
                                                           @Param("end") LocalDateTime end,
-                                                          @Param("uris") String[] uris);
+                                                          @Param("uris") List<String> uris);
 
     @Query("SELECT new ru.practicum.ewm.stats.statsdto.ViewStats(" +
             "st.app, " +

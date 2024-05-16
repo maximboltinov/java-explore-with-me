@@ -5,9 +5,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import ru.practicum.ewm.stats.statsserver.exception.InvalidTimePeriodException;
 import ru.practicum.ewm.stats.statsserver.repository.JpaStatRepository;
 
-import java.util.Optional;
+import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -24,9 +26,25 @@ class StatServiceImplTest {
     }
 
     @Test
-    void getStats() {
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> statService.getStats("2023-10-11 15-14-13", "jjjjjjjjjj",
-                        Optional.empty(), false));
+    void getStats_startAfterEnd_exception() {
+        assertThrows(InvalidTimePeriodException.class,
+                () -> statService.getStats(LocalDateTime.now().plusDays(5), LocalDateTime.now().minusDays(5),
+                        List.of(), false));
+    }
+
+    @Test
+    void getStats_startEqualsEnd_exception() {
+        LocalDateTime localDateTime = LocalDateTime.now();
+
+        assertThrows(InvalidTimePeriodException.class,
+                () -> statService.getStats(localDateTime, localDateTime,
+                        List.of(), false));
+    }
+
+    @Test
+    void getStats_startAfterNow_exception() {
+        assertThrows(InvalidTimePeriodException.class,
+                () -> statService.getStats(LocalDateTime.now().plusDays(5), LocalDateTime.now().plusDays(6),
+                        List.of(), false));
     }
 }
