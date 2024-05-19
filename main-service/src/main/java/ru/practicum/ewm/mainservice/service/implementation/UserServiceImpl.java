@@ -4,8 +4,9 @@ import lombok.AllArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import ru.practicum.ewm.mainservice.dto.user.UserDto;
 import ru.practicum.ewm.mainservice.dto.user.NewUserRequest;
+import ru.practicum.ewm.mainservice.dto.user.UserDto;
+import ru.practicum.ewm.mainservice.exception.custom.ObjectNotFoundExceptionCust;
 import ru.practicum.ewm.mainservice.mapper.UserMapper;
 import ru.practicum.ewm.mainservice.model.User;
 import ru.practicum.ewm.mainservice.repository.JpaUserRepository;
@@ -42,6 +43,10 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void deleteUser(Long userId) {
+        if (!jpaUserRepository.existsById(userId)) {
+            throw new ObjectNotFoundExceptionCust(String.format("Пользователь с id = %s не был найден", userId));
+        }
+
         jpaUserRepository.deleteById(userId);
     }
 }
