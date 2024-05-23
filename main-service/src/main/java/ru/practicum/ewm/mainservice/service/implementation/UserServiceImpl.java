@@ -43,10 +43,14 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void deleteUser(Long userId) {
-        if (!jpaUserRepository.existsById(userId)) {
-            throw new ObjectNotFoundExceptionCust(String.format("Пользователь с id = %s не был найден", userId));
-        }
-
+        checkUserById(userId);
         jpaUserRepository.deleteById(userId);
+    }
+
+    @Override
+    public User checkUserById(Long userId) {
+        return jpaUserRepository.findById(userId)
+                .orElseThrow(() -> new ObjectNotFoundExceptionCust(
+                        String.format("Пользователь с id = %s не был найден", userId)));
     }
 }

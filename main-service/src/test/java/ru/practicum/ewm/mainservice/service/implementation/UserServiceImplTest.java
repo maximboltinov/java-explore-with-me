@@ -10,8 +10,6 @@ import ru.practicum.ewm.mainservice.repository.JpaUserRepository;
 import ru.practicum.ewm.mainservice.service.UserService;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceImplTest {
@@ -27,9 +25,6 @@ class UserServiceImplTest {
 
     @Test
     void deleteUser() {
-        when(jpaUserRepository.existsById(anyLong()))
-                .thenReturn(false);
-
         assertThrows(ObjectNotFoundExceptionCust.class, () -> userService.deleteUser(100500L));
     }
 }

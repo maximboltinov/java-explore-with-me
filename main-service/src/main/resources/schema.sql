@@ -45,17 +45,11 @@ CREATE TABLE IF NOT EXISTS events
     participant_limit  INTEGER DEFAULT 0,
     request_moderation BOOLEAN DEFAULT TRUE,
     title              VARCHAR(120)                            NOT NULL,
-
-
-    /*пока под вопросом !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-    confirmed_Requests BIGINT,
     create_date        TIMESTAMP(0),
     initiator_id       BIGINT                                  NOT NULL,
     published_date     TIMESTAMP(0),
     status             VARCHAR(200),
-    /*пока под вопросом !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-
-
+    confirmed_Requests BIGINT,
     CONSTRAINT pk_events PRIMARY KEY (id),
     CONSTRAINT fk_events_users FOREIGN KEY (initiator_id) REFERENCES users (id),
     CONSTRAINT fk_events_categories FOREIGN KEY (category_id) REFERENCES categories (id),

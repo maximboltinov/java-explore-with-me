@@ -7,6 +7,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import ru.practicum.ewm.mainservice.exception.custom.ConflictException;
+import ru.practicum.ewm.mainservice.exception.custom.IncorrectParametersException;
 import ru.practicum.ewm.mainservice.exception.custom.ObjectNotFoundExceptionCust;
 
 import javax.validation.ConstraintViolationException;
@@ -30,9 +32,9 @@ public class ErrorHandler {
                 .build();
     }
 
-    @ExceptionHandler(ConstraintViolationException.class)
+    @ExceptionHandler({ConstraintViolationException.class, IncorrectParametersException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiError handlerConstraintViolation(final ConstraintViolationException e) {
+    public ApiError handlerConstraintViolation(final Exception e) {
         log.info("Завершен ошибкой", e);
 
         return ApiError.builder()
@@ -43,9 +45,9 @@ public class ErrorHandler {
                 .build();
     }
 
-    @ExceptionHandler(DataIntegrityViolationException.class)
+    @ExceptionHandler({DataIntegrityViolationException.class, ConflictException.class})
     @ResponseStatus(HttpStatus.CONFLICT)
-    public ApiError handlerIntegrity(final DataIntegrityViolationException e) {
+    public ApiError handlerIntegrity(final Exception e) {
         log.info("Завершен ошибкой", e);
 
         return ApiError.builder()
@@ -65,6 +67,19 @@ public class ErrorHandler {
                 .errors(Arrays.asList(e.getStackTrace()))
                 .status(HttpStatus.NOT_FOUND.name())
                 .reason("Искомый объект не был найден")
+                .message(e.getMessage())
+                .build();
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiError handlerIllegalArgument(final IllegalArgumentException e) {
+        log.info("Завершен ошибкой", e);
+
+        return ApiError.builder()
+                .errors(Arrays.asList(e.getStackTrace()))
+                .status(HttpStatus.CONFLICT.name())
+                .reason("Не выполнены условия для запрошенной операции")
                 .message(e.getMessage())
                 .build();
     }

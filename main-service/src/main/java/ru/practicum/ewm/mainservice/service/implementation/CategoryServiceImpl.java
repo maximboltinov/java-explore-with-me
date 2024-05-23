@@ -56,7 +56,8 @@ public class CategoryServiceImpl implements CategoryService {
         return CategoryMapper.categoryToCategoryDto(category);
     }
 
-    private Category checkCategoryById(Long catId) {
+    @Override
+    public Category checkCategoryById(Long catId) {
         return jpaCategoryRepository.findById(catId).orElseThrow(() ->
                 new ObjectNotFoundExceptionCust("Категории с id = " + catId + " не существует"));
     }
