@@ -31,6 +31,8 @@ public interface EventService {
 
     EventFullDto updateEventAdmin(Long eventId, UpdateEventAdminRequest updateEventAdminRequest);
 
+    void loadShortEventsViewsNumber(List<EventShortDto> eventShortDtos);
+
     Event checkEvent(Long eventId);
 
     void updateEvent(Event event);

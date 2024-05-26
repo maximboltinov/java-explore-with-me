@@ -370,6 +370,7 @@ public class EventServiceImpl implements EventService {
         return resultSpecification.stream().filter(Objects::nonNull).collect(Collectors.toList());
     }
 
+    @Override
     public void loadShortEventsViewsNumber(List<EventShortDto> eventShortDtos) {
         Map<Long, Long> eventsViews = getViewForEvents(eventShortDtos.stream().map(EventShortDto::getId).collect(Collectors.toList()));
         for (EventShortDto dto : eventShortDtos) {
