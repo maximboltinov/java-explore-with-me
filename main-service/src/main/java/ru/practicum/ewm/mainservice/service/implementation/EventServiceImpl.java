@@ -1,21 +1,24 @@
 package ru.practicum.ewm.mainservice.service.implementation;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import ru.practicum.ewm.mainservice.dto.event.EventFullDto;
-import ru.practicum.ewm.mainservice.dto.event.EventShortDto;
-import ru.practicum.ewm.mainservice.dto.event.NewEventDto;
-import ru.practicum.ewm.mainservice.dto.event.UpdateEventUserRequest;
+import ru.practicum.ewm.mainservice.dto.event.*;
 import ru.practicum.ewm.mainservice.dto.location.LocationDto;
 import ru.practicum.ewm.mainservice.dto.request.EventRequestStatusUpdateRequest;
 import ru.practicum.ewm.mainservice.dto.request.EventRequestStatusUpdateResult;
 import ru.practicum.ewm.mainservice.dto.request.ParticipationRequestDto;
 import ru.practicum.ewm.mainservice.enums.EventState;
 import ru.practicum.ewm.mainservice.enums.RequestStatus;
+import ru.practicum.ewm.mainservice.enums.SortType;
 import ru.practicum.ewm.mainservice.enums.StateAction;
 import ru.practicum.ewm.mainservice.exception.custom.ConflictException;
 import ru.practicum.ewm.mainservice.exception.custom.IncorrectParametersException;
@@ -25,21 +28,32 @@ import ru.practicum.ewm.mainservice.mapper.RequestMapper;
 import ru.practicum.ewm.mainservice.model.*;
 import ru.practicum.ewm.mainservice.repository.JpaEventRepository;
 import ru.practicum.ewm.mainservice.service.*;
+import ru.practicum.ewm.stats.statsclient.StatsClient;
+import ru.practicum.ewm.stats.statsdto.EndpointHit;
+import ru.practicum.ewm.stats.statsdto.ViewStats;
 
+import javax.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
+import static java.net.URLEncoder.encode;
+import static ru.practicum.ewm.mainservice.specification.EventSpecification.*;
+
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class EventServiceImpl implements EventService {
     private final JpaEventRepository jpaEventRepository;
     private final UserService userService;
     private final CategoryService categoryService;
     private final LocationService locationService;
     private final RequestService requestService;
+    private final ObjectMapper objectMapper;
+
+
+    private final StatsClient statsClient = new StatsClient("http://stats-server:9090", new RestTemplateBuilder());
 
     @Override
     public EventFullDto createEvent(Long userId, NewEventDto newEventDto) {
@@ -81,7 +95,7 @@ public class EventServiceImpl implements EventService {
 
         PageRequest pageRequest = PageRequest.of(from / size, size, Sort.by(Sort.Direction.ASC, "id"));
         return jpaEventRepository.findAll(pageRequest).getContent()
-                .stream().map(EventMapper::toEventShortDto).collect(Collectors.toList());
+                .stream().map(EventMapper::eventToEventShortDto).collect(Collectors.toList());
     }
 
     @Override
@@ -154,6 +168,46 @@ public class EventServiceImpl implements EventService {
                 .collect(Collectors.toList()));
 
         return result;
+    }
+
+    @Override
+    public List<EventShortDto> getFilteredEvents(
+            EventRequestParams eventRequestParams, Integer from, Integer size, HttpServletRequest request) {
+        validateDateRange(eventRequestParams);
+
+        PageRequest pageRequest = PageRequest.of(from / size, size, Sort.by(Sort.Direction.DESC, "eventDate"));
+        List<Specification<Event>> specifications = eventRequestParamsToSpecifications(eventRequestParams);
+        List<Event> events = jpaEventRepository.findAll(specifications.stream().reduce(Specification::and).orElse(null),
+                pageRequest).getContent();
+
+        List<EventShortDto> eventShortDtos = events.stream().map(EventMapper::eventToEventShortDto).collect(Collectors.toList());
+        loadShortEventsViewsNumber(eventShortDtos);
+
+        if (eventRequestParams.getSort() != null && eventRequestParams.getSort().equals(SortType.VIEWS)) {
+            eventShortDtos.sort(Comparator.comparing(EventShortDto::getViews));
+        }
+
+        statsClient.create(new EndpointHit("main-service", request.getRequestURI(), request.getRemoteAddr(),
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+
+        return events.stream().map(EventMapper::eventToEventShortDto).collect(Collectors.toList());
+    }
+
+    @Override
+    public EventFullDto getEventById(Long eventId, HttpServletRequest request) {
+        Event event = checkEvent(eventId);
+        if (!event.getState().equals(EventState.PUBLISHED)) {
+            throw new ObjectNotFoundExceptionCust("Событие с id = " + eventId + " не опубликовано");
+        }
+
+        Long eventViewsNumbers = getEventViewsNumber(eventId);
+
+        statsClient.create(new EndpointHit("main-service", request.getRequestURI(), request.getRemoteAddr(),
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+
+        EventFullDto eventFullDto = EventMapper.eventToEventFullDto(event);
+        eventFullDto.setViews(eventViewsNumbers);
+        return eventFullDto;
     }
 
 
@@ -238,5 +292,71 @@ public class EventServiceImpl implements EventService {
         String json = gson.toJson(updateEventUserRequest);
         return gson.fromJson(json, new TypeToken<Map<String, Object>>() {
         }.getType());
+    }
+
+    private void validateDateRange(EventRequestParams eventRequestParams) {
+        if (eventRequestParams.getRangeStart() != null && eventRequestParams.getRangeEnd() != null) {
+            if (eventRequestParams.getRangeStart().isAfter(eventRequestParams.getRangeEnd())) {
+                throw new IncorrectParametersException("Некорректный временной диапазон");
+            }
+        }
+
+        if (eventRequestParams.getRangeStart() == null && eventRequestParams.getRangeEnd() != null) {
+            if (eventRequestParams.getRangeEnd().isBefore(LocalDateTime.now())) {
+                throw new IncorrectParametersException("Некорректный временной диапазон");
+            }
+        }
+    }
+
+    private List<Specification<Event>> eventRequestParamsToSpecifications(EventRequestParams eventRequestParams) {
+        List<Specification<Event>> resultSpecification = new ArrayList<>();
+        resultSpecification.add(eventStatusEquals(EventState.PUBLISHED));
+        resultSpecification.add(likeText(eventRequestParams.getText()));
+        resultSpecification.add(categoryIn(eventRequestParams.getCategories()));
+        resultSpecification.add(isPaid(eventRequestParams.getPaid()));
+        resultSpecification.add(eventDateInRange(eventRequestParams.getRangeStart(), eventRequestParams.getRangeEnd()));
+        resultSpecification.add(isAvailable(eventRequestParams.getOnlyAvailable()));
+        return resultSpecification.stream().filter(Objects::nonNull).collect(Collectors.toList());
+    }
+
+    public void loadShortEventsViewsNumber(List<EventShortDto> eventShortDtos) {
+        Map<Long, Long> eventsViews = getViewForEvents(eventShortDtos.stream().map(EventShortDto::getId).collect(Collectors.toList()));
+        for (EventShortDto dto : eventShortDtos) {
+            dto.setViews(eventsViews.get(dto.getId()));
+        }
+    }
+
+    private Map<Long, Long> getViewForEvents(List<Long> eventsIds) {
+        List<String> uris = eventsIds.stream().map(id -> "/events/" + id).collect(Collectors.toList());
+        ResponseEntity<Object> response = statsClient.getStats(
+                encode(LocalDateTime.MIN.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")), StandardCharsets.UTF_8),
+                encode(LocalDateTime.MAX.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")), StandardCharsets.UTF_8),
+                uris, true);
+
+        List<ViewStats> viewsStats = objectMapper.convertValue(response.getBody(), new TypeReference<>() {
+        });
+
+        Map<Long, Long> eventsViews = viewsStats.stream()
+                .collect(Collectors.toMap(
+                        viewStats -> Long.parseLong(viewStats.getUri().substring(viewStats.getUri().lastIndexOf("/") + 1)),
+                        ViewStats::getHits));
+
+
+        for (Long eventId : eventsIds) {
+            if (!eventsViews.containsKey(eventId)) {
+                eventsViews.put(eventId, 0L);
+            }
+        }
+        return eventsViews;
+    }
+
+    private Event checkEvent(Long eventId) {
+        return jpaEventRepository.findById(eventId)
+                .orElseThrow(() -> new ObjectNotFoundExceptionCust("События с id = " + eventId + " не существует"));
+    }
+
+    public Long getEventViewsNumber(Long eventId) {
+        Map<Long, Long> eventViews = getViewForEvents(List.of(eventId));
+        return eventViews.get(eventId);
     }
 }

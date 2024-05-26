@@ -13,7 +13,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @Service
 public class StatsClient extends BaseClient {
@@ -34,14 +33,15 @@ public class StatsClient extends BaseClient {
     }
 
     public ResponseEntity<Object> getStats(String encodedStart, String encodedEnd,
-                                           Optional<List<String>> uris, Boolean unique) {
+                                           List<String> uris, Boolean unique) {
         Map<String, Object> parameters = new HashMap<>(Map.of(
                 "start", encodedStart,
                 "end", encodedEnd,
+                "uris", String.join(",", uris),
                 "unique", unique
         ));
 
-        uris.ifPresent(uri -> parameters.put("uris", String.join(",", uri)));
+//        uris.ifPresent(uri -> parameters.put("uris", String.join(",", uri)));
 
         StringBuilder pathBuilder = new StringBuilder("/stats?start={start}&end={end}&unique={unique}");
 

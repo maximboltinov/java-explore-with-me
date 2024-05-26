@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS events
     initiator_id       BIGINT                                  NOT NULL,
     published_date     TIMESTAMP(0),
     status             VARCHAR(200),
-    confirmed_Requests BIGINT,
+    confirmed_Requests INTEGER DEFAULT 0,
     CONSTRAINT pk_events PRIMARY KEY (id),
     CONSTRAINT fk_events_users FOREIGN KEY (initiator_id) REFERENCES users (id),
     CONSTRAINT fk_events_categories FOREIGN KEY (category_id) REFERENCES categories (id),
