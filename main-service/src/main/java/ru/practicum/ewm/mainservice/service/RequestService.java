@@ -1,5 +1,6 @@
 package ru.practicum.ewm.mainservice.service;
 
+import ru.practicum.ewm.mainservice.dto.request.ParticipationRequestDto;
 import ru.practicum.ewm.mainservice.enums.RequestStatus;
 import ru.practicum.ewm.mainservice.model.ParticipationRequest;
 
@@ -15,4 +16,10 @@ public interface RequestService {
     int countByEventIdAndStatus(Long eventId, RequestStatus requestStatus);
 
     void saveAll(List<ParticipationRequest> requests);
+
+    ParticipationRequestDto create(Long userId, Long eventId);
+
+    List<ParticipationRequestDto> getRequests(Long userId);
+
+    ParticipationRequestDto cancelRequest(Long userId, Long requestId);
 }

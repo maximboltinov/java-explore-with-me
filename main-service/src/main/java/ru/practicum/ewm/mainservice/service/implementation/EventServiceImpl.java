@@ -401,9 +401,15 @@ public class EventServiceImpl implements EventService {
         return eventsViews;
     }
 
-    private Event checkEvent(Long eventId) {
+    @Override
+    public Event checkEvent(Long eventId) {
         return jpaEventRepository.findById(eventId)
                 .orElseThrow(() -> new ObjectNotFoundExceptionCust("События с id = " + eventId + " не существует"));
+    }
+
+    @Override
+    public void updateEvent(Event event) {
+        jpaEventRepository.save(event);
     }
 
     public Long getEventViewsNumber(Long eventId) {

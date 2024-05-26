@@ -4,6 +4,7 @@ import ru.practicum.ewm.mainservice.dto.event.*;
 import ru.practicum.ewm.mainservice.dto.request.EventRequestStatusUpdateRequest;
 import ru.practicum.ewm.mainservice.dto.request.EventRequestStatusUpdateResult;
 import ru.practicum.ewm.mainservice.dto.request.ParticipationRequestDto;
+import ru.practicum.ewm.mainservice.model.Event;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -29,4 +30,8 @@ public interface EventService {
     List<EventFullDto> getEventsAdmin(EventRequestParamsAdmin requestParamsAdmin, int from, int size);
 
     EventFullDto updateEventAdmin(Long eventId, UpdateEventAdminRequest updateEventAdminRequest);
+
+    Event checkEvent(Long eventId);
+
+    void updateEvent(Event event);
 }
