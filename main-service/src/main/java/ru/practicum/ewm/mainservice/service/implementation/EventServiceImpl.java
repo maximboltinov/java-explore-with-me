@@ -210,6 +210,30 @@ public class EventServiceImpl implements EventService {
         return eventFullDto;
     }
 
+    @Override
+    public List<EventFullDto> getEventsAdmin(EventRequestParamsAdmin requestParamsAdmin, int from, int size) {
+        PageRequest pageRequest = PageRequest.of(from / size, size, Sort.by(Sort.Direction.ASC, "id"));
+        List<Specification<Event>> specifications = requestParamsAdminToSpecifications(requestParamsAdmin);
+        List<Event> events = jpaEventRepository.findAll(
+                specifications.stream().reduce(Specification::and).orElse(null),
+                pageRequest).getContent();
+        return events.stream().map(EventMapper::eventToEventFullDto).collect(Collectors.toList());
+    }
+
+    @Override
+    public EventFullDto updateEventAdmin(Long eventId, UpdateEventAdminRequest updateEventAdminRequest) {
+        Event event = jpaEventRepository.findById(eventId).orElseThrow(() ->
+                new ObjectNotFoundExceptionCust("Событие с id = " + eventId + " не существует"));
+
+        toMap(updateEventAdminRequest).entrySet().stream()
+                .filter(entry -> entry.getValue() != null)
+                .forEach(entry -> eventUpdater(event, entry));
+
+        Event savedEvent = jpaEventRepository.save(event);
+
+        return EventMapper.eventToEventFullDto(savedEvent);
+    }
+
 
     private void checkDateTimeInFuture(LocalDateTime time, int hoursPlus) {
         if (time.isBefore(LocalDateTime.now().plusHours(hoursPlus))) {
@@ -276,6 +300,16 @@ public class EventServiceImpl implements EventService {
                     case CANCEL_REVIEW:
                         event.setState(EventState.CANCELED);
                         break;
+                    case PUBLISH_EVENT:
+                        checkIfEventIsCanceled(event);
+                        checkIfEventIsAlreadyPublished(event);
+                        event.setState(EventState.PUBLISHED);
+                        event.setPublishedDate(LocalDateTime.now());
+                        break;
+                    case REJECT_EVENT:
+                        checkIfEventIsAlreadyPublished(event);
+                        event.setState(EventState.CANCELED);
+                        break;
                 }
                 break;
             case "title":
@@ -290,6 +324,13 @@ public class EventServiceImpl implements EventService {
     private Map<String, Object> toMap(UpdateEventUserRequest updateEventUserRequest) {
         Gson gson = new Gson();
         String json = gson.toJson(updateEventUserRequest);
+        return gson.fromJson(json, new TypeToken<Map<String, Object>>() {
+        }.getType());
+    }
+
+    private Map<String, Object> toMap(UpdateEventAdminRequest updateEventAdminRequest) {
+        Gson gson = new Gson();
+        String json = gson.toJson(updateEventAdminRequest);
         return gson.fromJson(json, new TypeToken<Map<String, Object>>() {
         }.getType());
     }
@@ -316,6 +357,16 @@ public class EventServiceImpl implements EventService {
         resultSpecification.add(isPaid(eventRequestParams.getPaid()));
         resultSpecification.add(eventDateInRange(eventRequestParams.getRangeStart(), eventRequestParams.getRangeEnd()));
         resultSpecification.add(isAvailable(eventRequestParams.getOnlyAvailable()));
+        return resultSpecification.stream().filter(Objects::nonNull).collect(Collectors.toList());
+    }
+
+    private List<Specification<Event>> requestParamsAdminToSpecifications(EventRequestParamsAdmin requestParamsAdmin) {
+        List<Specification<Event>> resultSpecification = new ArrayList<>();
+        resultSpecification.add(eventStatusIn(requestParamsAdmin.getStates()));
+        resultSpecification.add(initiatorIdIn(requestParamsAdmin.getUsers()));
+        resultSpecification.add(categoryIn(requestParamsAdmin.getCategories()));
+        resultSpecification.add(eventDateInRange(requestParamsAdmin.getRangeStart(), requestParamsAdmin.getRangeEnd()));
+        resultSpecification.add(isAvailable(requestParamsAdmin.isOnlyAvailable()));
         return resultSpecification.stream().filter(Objects::nonNull).collect(Collectors.toList());
     }
 
@@ -358,5 +409,35 @@ public class EventServiceImpl implements EventService {
     public Long getEventViewsNumber(Long eventId) {
         Map<Long, Long> eventViews = getViewForEvents(List.of(eventId));
         return eventViews.get(eventId);
+    }
+
+    private void updateEventState(StateAction stateAction, Event event) {
+        if (stateAction == null) {
+            return;
+        }
+        switch (stateAction) {
+            case PUBLISH_EVENT:
+                checkIfEventIsCanceled(event);
+                checkIfEventIsAlreadyPublished(event);
+                event.setState(EventState.PUBLISHED);
+                event.setPublishedDate(LocalDateTime.now());
+                break;
+            case REJECT_EVENT:
+                checkIfEventIsAlreadyPublished(event);
+                event.setState(EventState.CANCELED);
+                break;
+        }
+    }
+
+    private void checkIfEventIsCanceled(Event event) {
+        if (event.getState().equals(EventState.CANCELED)) {
+            throw new ConflictException("Нельзя опубликовать отмененное событие");
+        }
+    }
+
+    private void checkIfEventIsAlreadyPublished(Event event) {
+        if (event.getState().equals(EventState.PUBLISHED)) {
+            throw new ConflictException("Событие уже опубликовано");
+        }
     }
 }

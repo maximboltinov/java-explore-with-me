@@ -25,4 +25,8 @@ public interface EventService {
             EventRequestParams eventRequestParams, Integer from, Integer size, HttpServletRequest request);
 
     EventFullDto getEventById(Long eventId, HttpServletRequest request);
+
+    List<EventFullDto> getEventsAdmin(EventRequestParamsAdmin requestParamsAdmin, int from, int size);
+
+    EventFullDto updateEventAdmin(Long eventId, UpdateEventAdminRequest updateEventAdminRequest);
 }
