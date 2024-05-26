@@ -4,8 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import lombok.RequiredArgsConstructor;
-import org.springframework.boot.web.client.RestTemplateBuilder;
+import lombok.AllArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -43,7 +42,7 @@ import static java.net.URLEncoder.encode;
 import static ru.practicum.ewm.mainservice.specification.EventSpecification.*;
 
 @Service
-@RequiredArgsConstructor
+@AllArgsConstructor
 public class EventServiceImpl implements EventService {
     private final JpaEventRepository jpaEventRepository;
     private final UserService userService;
@@ -51,9 +50,7 @@ public class EventServiceImpl implements EventService {
     private final LocationService locationService;
     private final RequestService requestService;
     private final ObjectMapper objectMapper;
-
-
-    private final StatsClient statsClient = new StatsClient("http://stats-server:9090", new RestTemplateBuilder());
+    private final StatsClient statsClient;
 
     @Override
     public EventFullDto createEvent(Long userId, NewEventDto newEventDto) {

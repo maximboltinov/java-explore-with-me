@@ -22,7 +22,7 @@ import java.util.List;
 public class EventControllerPublic {
     private final EventService eventService;
 
-    @GetMapping("/events")
+    @GetMapping
     public List<EventShortDto> getEvents(EventRequestParams eventRequestParams,
                                          @RequestParam(defaultValue = "0") @PositiveOrZero Integer from,
                                          @RequestParam(defaultValue = "10") @Positive Integer size,

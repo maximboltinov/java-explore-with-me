@@ -1,6 +1,10 @@
 package ru.practicum.ewm.mainservice.service.implementation;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import ru.practicum.ewm.mainservice.dto.compilation.CompilationDto;
 import ru.practicum.ewm.mainservice.dto.compilation.NewCompilationDto;
@@ -14,7 +18,10 @@ import ru.practicum.ewm.mainservice.repository.JpaEventRepository;
 import ru.practicum.ewm.mainservice.service.CompilationService;
 import ru.practicum.ewm.mainservice.service.EventService;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -59,6 +66,26 @@ public class CompilationServiceImpl implements CompilationService {
 
     }
 
+    @Override
+    public List<CompilationDto> getCompilations(Boolean pinned, int from, int size) {
+        Pageable pageRequest = PageRequest.of(from / size, size, Sort.by(Sort.Direction.ASC, "id"));
+
+        List<Specification<Compilation>> specifications = searchFilterToSpecificationList(pinned);
+        List<Compilation> compilations = jpaCompilationRepository.findAll(specifications.stream()
+                .reduce(Specification::and).orElse(null), pageRequest).getContent();
+
+        return compilations.stream()
+                .map(CompilationMapper::compilationToCompilationDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public CompilationDto getCompilationsById(Long compId) {
+        Compilation compilation = getCompilationWithEvents(compId);
+
+        return CompilationMapper.compilationToCompilationDto(compilation);
+    }
+
     private Compilation updateCompilation(Compilation compilation, UpdateCompilationRequest updateCompilationRequest, List<Event> events) {
         return Compilation.builder()
                 .id(compilation.getId())
@@ -66,5 +93,21 @@ public class CompilationServiceImpl implements CompilationService {
                 .pinned(updateCompilationRequest.getPinned() == null ? compilation.isPinned() : updateCompilationRequest.getPinned())
                 .title(updateCompilationRequest.getTitle() == null ? compilation.getTitle() : updateCompilationRequest.getTitle())
                 .build();
+    }
+
+    private List<Specification<Compilation>> searchFilterToSpecificationList(Boolean pinned) {
+        List<Specification<Compilation>> resultSpecification = new ArrayList<>();
+        resultSpecification.add(pinned == null ? null : isPinned(pinned));
+        return resultSpecification.stream().filter(Objects::nonNull).collect(Collectors.toList());
+
+    }
+
+    private Specification<Compilation> isPinned(Boolean pinned) {
+        return (root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("pinned"), pinned);
+    }
+
+    private Compilation getCompilationWithEvents(Long compId) {
+        return jpaCompilationRepository.findCompilationWithEventById(compId)
+                .orElseThrow(() -> new IllegalArgumentException("Подборка событий не найдена"));
     }
 }
