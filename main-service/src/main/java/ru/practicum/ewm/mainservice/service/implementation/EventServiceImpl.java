@@ -10,6 +10,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import ru.practicum.ewm.mainservice.StatsClient;
 import ru.practicum.ewm.mainservice.dto.event.*;
 import ru.practicum.ewm.mainservice.dto.location.LocationDto;
 import ru.practicum.ewm.mainservice.dto.request.EventRequestStatusUpdateRequest;
@@ -27,7 +28,6 @@ import ru.practicum.ewm.mainservice.mapper.RequestMapper;
 import ru.practicum.ewm.mainservice.model.*;
 import ru.practicum.ewm.mainservice.repository.JpaEventRepository;
 import ru.practicum.ewm.mainservice.service.*;
-import ru.practicum.ewm.stats.statsclient.StatsClient;
 import ru.practicum.ewm.stats.statsdto.EndpointHit;
 import ru.practicum.ewm.stats.statsdto.ViewStats;
 
