@@ -1,6 +1,5 @@
 package ru.practicum.ewm.mainservice.service.implementation;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -32,13 +31,11 @@ import ru.practicum.ewm.stats.statsdto.EndpointHit;
 import ru.practicum.ewm.stats.statsdto.ViewStats;
 
 import javax.servlet.http.HttpServletRequest;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static java.net.URLEncoder.encode;
 import static ru.practicum.ewm.mainservice.specification.EventSpecification.*;
 
 @Service
@@ -376,16 +373,21 @@ public class EventServiceImpl implements EventService {
     }
 
     private Map<Long, Long> getViewForEvents(List<Long> eventsIds) {
+        if (eventsIds.isEmpty()) {
+            return Map.of();
+        }
+
         List<String> uris = eventsIds.stream().map(id -> "/events/" + id).collect(Collectors.toList());
-        ResponseEntity<Object> response = statsClient.getStats(
-                encode(LocalDateTime.MIN.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")), StandardCharsets.UTF_8),
-                encode(LocalDateTime.MAX.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")), StandardCharsets.UTF_8),
+
+        ResponseEntity<List<ViewStats>> response = statsClient.getStats(
+                LocalDateTime.now().minusYears(300).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
+                LocalDateTime.now().plusMinutes(1).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
                 uris, true);
 
-        List<ViewStats> viewsStats = objectMapper.convertValue(response.getBody(), new TypeReference<>() {
-        });
+        List<ViewStats> viewStatsList = response.getBody();
 
-        Map<Long, Long> eventsViews = viewsStats.stream()
+        assert viewStatsList != null;
+        Map<Long, Long> eventsViews = viewStatsList.stream()
                 .collect(Collectors.toMap(
                         viewStats -> Long.parseLong(viewStats.getUri().substring(viewStats.getUri().lastIndexOf("/") + 1)),
                         ViewStats::getHits));

@@ -8,8 +8,8 @@ import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.DefaultUriBuilderFactory;
 import ru.practicum.ewm.stats.statsdto.EndpointHit;
+import ru.practicum.ewm.stats.statsdto.ViewStats;
 
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,29 +26,19 @@ public class StatsClient extends BaseClient {
         );
     }
 
-    private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
     public void create(EndpointHit endpointHitDto) {
         post("/hit", endpointHitDto);
     }
 
-    public ResponseEntity<Object> getStats(String encodedStart, String encodedEnd,
-                                           List<String> uris, Boolean unique) {
+    public ResponseEntity<List<ViewStats>> getStats(String start, String end,
+                                                    List<String> uris, Boolean unique) {
         Map<String, Object> parameters = new HashMap<>(Map.of(
-                "start", encodedStart,
-                "end", encodedEnd,
+                "start", start,
+                "end", end,
                 "uris", String.join(",", uris),
                 "unique", unique
         ));
 
-//        uris.ifPresent(uri -> parameters.put("uris", String.join(",", uri)));
-
-        StringBuilder pathBuilder = new StringBuilder("/stats?start={start}&end={end}&unique={unique}");
-
-        if (parameters.containsKey("uris")) {
-            pathBuilder.append(parameters.get("&uris={uris}"));
-        }
-
-        return get(pathBuilder.toString(), parameters);
+        return get("/stats?start={start}&end={end}&uris={uris}&unique={unique}", parameters);
     }
 }

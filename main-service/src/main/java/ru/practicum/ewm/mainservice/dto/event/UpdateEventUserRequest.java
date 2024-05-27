@@ -10,6 +10,7 @@ import ru.practicum.ewm.mainservice.dto.location.LocationDto;
 import ru.practicum.ewm.mainservice.enums.StateAction;
 
 import javax.validation.Valid;
+import javax.validation.constraints.Positive;
 import javax.validation.constraints.PositiveOrZero;
 import javax.validation.constraints.Size;
 import java.time.LocalDateTime;
@@ -22,6 +23,7 @@ public class UpdateEventUserRequest {
     @Length(min = 20, max = 2000)
     private String annotation;
 
+    @Positive
     private Long category;
 
     @Length(min = 20, max = 7000)

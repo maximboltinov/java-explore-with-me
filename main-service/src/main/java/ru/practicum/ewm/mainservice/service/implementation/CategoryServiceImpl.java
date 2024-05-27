@@ -36,11 +36,8 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public void deleteCategory(Long catId) {
         checkCategoryById(catId);
-        try {
-            jpaCategoryRepository.deleteById(catId);
-        } catch (Exception e) {
-            System.out.println("Exception e !!!!!!!!!!!!!!!!!!!! = " + e);
-        }
+        jpaCategoryRepository.deleteById(catId);
+
     }
 
     @Override
