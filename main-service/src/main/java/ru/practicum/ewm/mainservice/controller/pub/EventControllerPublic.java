@@ -34,8 +34,7 @@ public class EventControllerPublic {
     }
 
     @GetMapping("/{eventId}")
-    public EventFullDto getEventById(@PathVariable(value = "eventId") @Positive Long eventId,
-                                     HttpServletRequest request) {
+    public EventFullDto getEventById(@PathVariable @Positive Long eventId, HttpServletRequest request) {
         log.info("Запрос GET /events/{}", eventId);
         EventFullDto result = eventService.getEventById(eventId, request);
         log.info("Ответ GET /events/{} {}", eventId, result);

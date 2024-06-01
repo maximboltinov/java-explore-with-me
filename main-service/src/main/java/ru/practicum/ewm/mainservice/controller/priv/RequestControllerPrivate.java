@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import ru.practicum.ewm.mainservice.dto.request.ParticipationRequestDto;
 import ru.practicum.ewm.mainservice.service.RequestService;
 
+import javax.validation.constraints.Positive;
 import java.util.List;
 
 @RestController
@@ -20,8 +21,8 @@ public class RequestControllerPrivate {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ParticipationRequestDto create(@PathVariable Long userId,
-                                              @RequestParam Long eventId) {
+    public ParticipationRequestDto create(@PathVariable @Positive Long userId,
+                                              @RequestParam @Positive Long eventId) {
         log.info("Запрос POST /users/{}/requests", userId);
         ParticipationRequestDto result = requestService.create(userId, eventId);
         log.info("Ответ POST /users/{}/requests {}", userId, result);
@@ -29,7 +30,7 @@ public class RequestControllerPrivate {
     }
 
     @GetMapping
-    public List<ParticipationRequestDto> getRequests(@PathVariable Long userId) {
+    public List<ParticipationRequestDto> getRequests(@PathVariable  @Positive Long userId) {
         log.info("Запрос GET /users/{}/requests", userId);
         List<ParticipationRequestDto> result = requestService.getRequests(userId);
         log.info("Ответ GET /users/{}/requests {}", userId, result);
@@ -37,7 +38,8 @@ public class RequestControllerPrivate {
     }
 
     @PatchMapping("/{requestId}/cancel")
-    public ParticipationRequestDto cancelRequest(@PathVariable Long userId, @PathVariable Long requestId) {
+    public ParticipationRequestDto cancelRequest(@PathVariable @Positive Long userId,
+                                                 @PathVariable @Positive Long requestId) {
         log.info("Запрос PATCH /users/{}/requests/{}/cancel", userId, requestId);
         ParticipationRequestDto result = requestService.cancelRequest(userId, requestId);
         log.info("Ответ PATCH /users/{}/requests/{}/cancel {}", userId, requestId, result);

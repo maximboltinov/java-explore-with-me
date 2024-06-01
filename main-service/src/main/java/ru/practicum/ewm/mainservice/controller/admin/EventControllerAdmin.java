@@ -26,14 +26,18 @@ public class EventControllerAdmin {
     public List<EventFullDto> getEventsAdmin(EventRequestParamsAdmin requestParamsAdmin,
                                              @RequestParam(defaultValue = "0") @PositiveOrZero int from,
                                              @RequestParam(defaultValue = "10") @Positive int size) {
-        log.info("GET /admin/events from {} size {}", from, size);
-        return eventService.getEventsAdmin(requestParamsAdmin, from, size);
+        log.info("Запрос GET /admin/events from {} size {}", from, size);
+        List<EventFullDto> result = eventService.getEventsAdmin(requestParamsAdmin, from, size);
+        log.info("Ответ GET /admin/events from {} size {} {}", from, size, result);
+        return result;
     }
 
     @PatchMapping("/{eventId}")
     public EventFullDto updateEventAdmin(@PathVariable Long eventId,
                                     @RequestBody @Valid UpdateEventAdminRequest updateEventAdminRequest) {
-        log.info("PATCH /admin/events/{}", eventId);
-        return eventService.updateEventAdmin(eventId, updateEventAdminRequest);
+        log.info("Запрос PATCH /admin/events/{}", eventId);
+        EventFullDto result = eventService.updateEventAdmin(eventId, updateEventAdminRequest);
+        log.info("Ответ PATCH /admin/events/{} {}", eventId, result);
+        return result;
     }
 }

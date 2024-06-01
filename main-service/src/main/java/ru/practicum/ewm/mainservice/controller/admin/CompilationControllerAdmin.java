@@ -11,6 +11,7 @@ import ru.practicum.ewm.mainservice.dto.compilation.UpdateCompilationRequest;
 import ru.practicum.ewm.mainservice.service.CompilationService;
 
 import javax.validation.Valid;
+import javax.validation.constraints.Positive;
 
 @RestController
 @RequestMapping("/admin/compilations")
@@ -31,14 +32,14 @@ private final CompilationService compilationService;
 
     @DeleteMapping("/{compId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteCompilation(@PathVariable Long compId) {
+    public void deleteCompilation(@PathVariable @Positive Long compId) {
         log.info("Запрос DELETE /admin/compilations/{}", compId);
         compilationService.deleteCompilation(compId);
         log.info("Ответ DELETE /admin/compilations/{} {}", compId, HttpStatus.NO_CONTENT);
     }
 
     @PatchMapping("/{compId}")
-    public CompilationDto updateCompilation(@PathVariable long compId,
+    public CompilationDto updateCompilation(@PathVariable @Positive long compId,
                                             @RequestBody @Valid UpdateCompilationRequest updateCompilationRequest) {
         log.info("Запрос PATCH /admin/compilations/{} {}", compId, updateCompilationRequest);
         CompilationDto result = compilationService.updateCompilation(compId, updateCompilationRequest);
