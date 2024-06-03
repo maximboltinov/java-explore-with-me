@@ -26,7 +26,7 @@ public class EventControllerAdmin {
     public List<EventFullDto> getEventsAdmin(EventRequestParamsAdmin requestParamsAdmin,
                                              @RequestParam(defaultValue = "0") @PositiveOrZero int from,
                                              @RequestParam(defaultValue = "10") @Positive int size) {
-        log.info("Запрос GET /admin/events from {} size {}", from, size);
+        log.info("Запрос GET /admin/events from {} size {} {}", from, size, requestParamsAdmin);
         List<EventFullDto> result = eventService.getEventsAdmin(requestParamsAdmin, from, size);
         log.info("Ответ GET /admin/events from {} size {} {}", from, size, result);
         return result;

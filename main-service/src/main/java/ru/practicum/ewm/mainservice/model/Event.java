@@ -9,7 +9,8 @@ import ru.practicum.ewm.mainservice.enums.EventState;
 import javax.persistence.*;
 import java.time.LocalDateTime;
 
-@Entity(name = "events")
+@Entity
+@Table(name = "events")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -58,5 +59,5 @@ public class Event {
     private EventState state;
 
     @Column(name = "confirmed_Requests")
-    private Integer confirmedRequests;
+    private Integer confirmedRequests = 0;
 }

@@ -9,13 +9,13 @@ import ru.practicum.ewm.mainservice.model.Category;
 public class CategoryMapper {
     public Category categoryDtoToCategory(CategoryDto categoryDto) {
         return Category.builder()
-                .name(categoryDto.getName().trim().toUpperCase())
+                .name(categoryDto.getName())
                 .build();
     }
 
     public Category newCategoryDtoToCategory(NewCategoryDto newCategoryDto) {
         return Category.builder()
-                .name(newCategoryDto.getName().trim().toUpperCase())
+                .name(newCategoryDto.getName())
                 .build();
     }
 

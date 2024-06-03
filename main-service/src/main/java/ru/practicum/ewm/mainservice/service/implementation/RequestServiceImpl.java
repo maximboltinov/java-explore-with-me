@@ -16,10 +16,8 @@ import ru.practicum.ewm.mainservice.repository.JpaRequestRepository;
 import ru.practicum.ewm.mainservice.service.RequestService;
 import ru.practicum.ewm.mainservice.service.UserService;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static ru.practicum.ewm.mainservice.enums.RequestStatus.*;
@@ -39,7 +37,7 @@ public class RequestServiceImpl implements RequestService {
     @Override
     public List<ParticipationRequest> getRequestsByEventIdAndIdsAndStatus(
             Long eventId, Set<Long> requestIds, RequestStatus status) {
-        return jpaRequestRepository.findAllByEventIdAndStatusAndIdInOrderById(eventId, status, requestIds);
+        return jpaRequestRepository.findAllByEventIdAndIdInOrderById(eventId, requestIds);
     }
 
     @Override
@@ -92,6 +90,11 @@ public class RequestServiceImpl implements RequestService {
         return RequestMapper.participationRequestToDto(request);
     }
 
+    @Override
+    public Map<Long, Integer> confirmedRequests(List<Long> eventIds, RequestStatus status) {
+        return jpaRequestRepository.countByEventsIdAndStatus(eventIds, status);
+    }
+
     private void checkUserCanMakeRequest(Long userId, Long eventId, Event event) {
         if (Objects.equals(event.getInitiator().getId(), userId)) {
             throw new ConflictException("Пользователь с id = " + userId + " не может делать запрос " +
@@ -117,7 +120,11 @@ public class RequestServiceImpl implements RequestService {
         ParticipationRequest request = ParticipationRequest.builder()
                 .requester(user)
                 .event(event)
+                .created(LocalDateTime.now())
                 .build();
+
+        System.out.println("user = " + user + ", event = " + event);
+
         if (event.getConfirmedRequests() == event.getParticipantLimit() && event.getParticipantLimit() != 0) {
             throw new ConflictException("Превышен лимит участников для события с id " + event.getId());
         } else if (event.getParticipantLimit() == 0 || !event.isRequestModeration()) {

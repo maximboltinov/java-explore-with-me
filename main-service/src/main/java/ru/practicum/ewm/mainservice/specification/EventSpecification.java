@@ -44,6 +44,14 @@ public class EventSpecification {
         return (root, query, criteriaBuilder) -> criteriaBuilder.between(root.get("eventDate"), startRange, endRange);
     }
 
+    public static Specification<Event> eventDateBeforeOrEqual(LocalDateTime endRange) {
+        return (root, query, criteriaBuilder) -> criteriaBuilder.lessThanOrEqualTo(root.get("eventDate"), endRange);
+    }
+
+    public static Specification<Event> eventDateAfterOrEqual(LocalDateTime startRange) {
+        return (root, query, criteriaBuilder) -> criteriaBuilder.greaterThanOrEqualTo(root.get("eventDate"), startRange);
+    }
+
     public static Specification<Event> eventDateAfter(LocalDateTime dateTime) {
         if (dateTime == null) {
             return null;

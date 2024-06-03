@@ -9,7 +9,8 @@ import ru.practicum.ewm.mainservice.enums.RequestStatus;
 import javax.persistence.*;
 import java.time.LocalDateTime;
 
-@Entity(name = "participation_requests")
+@Entity
+@Table(name = "participation_requests")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor

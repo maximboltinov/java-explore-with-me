@@ -36,6 +36,7 @@ public class CompilationServiceImpl implements CompilationService {
                 jpaEventRepository.findAllById(newCompilationDto.getEvents()) : List.of();
 
         Compilation compilation = CompilationMapper.newCompilationDtoToCompilation(newCompilationDto, events);
+
         Compilation savedCompilation = jpaCompilationRepository.save(compilation);
 
         return CompilationMapper.compilationToCompilationDto(savedCompilation);

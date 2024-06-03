@@ -8,7 +8,8 @@ import lombok.NoArgsConstructor;
 import javax.persistence.*;
 import java.util.List;
 
-@Entity(name = "compilations")
+@Entity
+@Table(name = "compilations")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -19,14 +20,14 @@ public class Compilation {
     private long id;
 
     @ManyToMany
-    @JoinTable(name = "compilations_events",
+    @JoinTable(name = "compilation_events",
             joinColumns = @JoinColumn(name = "compilation_id"),
             inverseJoinColumns = @JoinColumn(name = "event_id"))
     private List<Event> events;
 
-    @Column(nullable = false)
-    private boolean pinned;
+    @Column
+    private boolean pinned = false;
 
-    @Column(nullable = false)
+    @Column
     private String title;
 }

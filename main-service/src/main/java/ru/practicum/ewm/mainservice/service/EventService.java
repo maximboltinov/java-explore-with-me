@@ -8,6 +8,7 @@ import ru.practicum.ewm.mainservice.model.Event;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Map;
 
 public interface EventService {
     EventFullDto createEvent(Long userId, NewEventDto newEventDto);
@@ -36,4 +37,6 @@ public interface EventService {
     Event checkEvent(Long eventId);
 
     void updateEvent(Event event);
+
+    Long getViewsForEvent(Long eventId, Map<Long, Long> views);
 }

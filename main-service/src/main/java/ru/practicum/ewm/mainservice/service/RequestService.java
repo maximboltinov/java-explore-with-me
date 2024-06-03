@@ -5,6 +5,7 @@ import ru.practicum.ewm.mainservice.enums.RequestStatus;
 import ru.practicum.ewm.mainservice.model.ParticipationRequest;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public interface RequestService {
@@ -22,4 +23,6 @@ public interface RequestService {
     List<ParticipationRequestDto> getRequests(Long userId);
 
     ParticipationRequestDto cancelRequest(Long userId, Long requestId);
+
+    Map<Long, Integer> confirmedRequests(List<Long> eventIds, RequestStatus status);
 }

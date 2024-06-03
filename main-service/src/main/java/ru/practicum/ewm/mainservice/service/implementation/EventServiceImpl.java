@@ -1,6 +1,5 @@
 package ru.practicum.ewm.mainservice.service.implementation;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import lombok.AllArgsConstructor;
@@ -11,7 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import ru.practicum.ewm.mainservice.StatsClient;
 import ru.practicum.ewm.mainservice.dto.event.*;
-import ru.practicum.ewm.mainservice.dto.location.LocationDto;
 import ru.practicum.ewm.mainservice.dto.request.EventRequestStatusUpdateRequest;
 import ru.practicum.ewm.mainservice.dto.request.EventRequestStatusUpdateResult;
 import ru.practicum.ewm.mainservice.dto.request.ParticipationRequestDto;
@@ -46,7 +44,6 @@ public class EventServiceImpl implements EventService {
     private final CategoryService categoryService;
     private final LocationService locationService;
     private final RequestService requestService;
-    private final ObjectMapper objectMapper;
     private final StatsClient statsClient;
 
     @Override
@@ -63,6 +60,7 @@ public class EventServiceImpl implements EventService {
 
         Event event = EventMapper.newEventDtoToEvent(newEventDto, category, user, EventState.PENDING,
                 createdDate, location);
+        event.setConfirmedRequests(0);
 
         return EventMapper.eventToEventFullDto(jpaEventRepository.save(event));
     }
@@ -78,7 +76,7 @@ public class EventServiceImpl implements EventService {
 
         toMap(updateEventUserRequest).entrySet().stream()
                 .filter(entry -> entry.getValue() != null)
-                .forEach(entry -> eventUpdater(currentEvent, entry));
+                .forEach(entry -> eventUpdater(currentEvent, updateEventUserRequest, entry.getKey()));
 
         return EventMapper.eventToEventFullDto(jpaEventRepository.save(currentEvent));
     }
@@ -95,14 +93,14 @@ public class EventServiceImpl implements EventService {
     @Override
     public EventFullDto getEvent(Long userId, Long eventId) {
         userService.checkUserById(userId);
-        Event event = checkEventByOwnerAndEventId(userId, eventId);
+        Event event = checkEventByOwnerAndEventId(eventId, userId);
         return EventMapper.eventToEventFullDto(event);
     }
 
     @Override
     public List<ParticipationRequestDto> getRequestByEventAndOwner(Long userId, Long eventId) {
         userService.checkUserById(userId);
-        checkEventByOwnerAndEventId(userId, eventId);
+        checkEventByOwnerAndEventId(eventId, userId);
         List<ParticipationRequest> requests = requestService.getRequestsByEventId(eventId);
         return requests.stream().map(RequestMapper::participationRequestToDto).collect(Collectors.toList());
     }
@@ -111,7 +109,7 @@ public class EventServiceImpl implements EventService {
     public EventRequestStatusUpdateResult updateStatusRequest(Long userId, Long eventId,
                                                               EventRequestStatusUpdateRequest inputUpdate) {
         userService.checkUserById(userId);
-        Event event = checkEventByOwnerAndEventId(userId, eventId);
+        Event event = checkEventByOwnerAndEventId(eventId, userId);
 
         if (!event.isRequestModeration() || event.getParticipantLimit() == 0) {
             throw new ConflictException("Для данного события подтверждение запросов не требуется");
@@ -141,6 +139,9 @@ public class EventServiceImpl implements EventService {
                 break;
             case REJECTED:
                 for (ParticipationRequest request : requestsForUpdate) {
+                    if (request.getStatus() == RequestStatus.CONFIRMED) {
+                        throw new ConflictException("Нельзя отклонить подтвержденную заявку");
+                    }
                     request.setStatus(RequestStatus.REJECTED);
                 }
                 break;
@@ -211,7 +212,14 @@ public class EventServiceImpl implements EventService {
         List<Event> events = jpaEventRepository.findAll(
                 specifications.stream().reduce(Specification::and).orElse(null),
                 pageRequest).getContent();
-        return events.stream().map(EventMapper::eventToEventFullDto).collect(Collectors.toList());
+        List<EventFullDto> result = events.stream().map(EventMapper::eventToEventFullDto).collect(Collectors.toList());
+
+        List<Long> eventsResultIds = result.stream().map(EventFullDto::getId).collect(Collectors.toList());
+        Map<Long, Long> views = getViewForEvents(eventsResultIds);
+
+        result.forEach(event -> event.setViews(getViewsForEvent(event.getId(), views)));
+
+        return result;
     }
 
     @Override
@@ -221,7 +229,7 @@ public class EventServiceImpl implements EventService {
 
         toMap(updateEventAdminRequest).entrySet().stream()
                 .filter(entry -> entry.getValue() != null)
-                .forEach(entry -> eventUpdater(event, entry));
+                .forEach(entry -> eventUpdaterAdmin(event, updateEventAdminRequest, entry.getKey()));
 
         Event savedEvent = jpaEventRepository.save(event);
 
@@ -231,62 +239,57 @@ public class EventServiceImpl implements EventService {
 
     private void checkDateTimeInFuture(LocalDateTime time, int hoursPlus) {
         if (time.isBefore(LocalDateTime.now().plusHours(hoursPlus))) {
-            throw new IllegalArgumentException(String.format(
+            throw new IncorrectParametersException(String.format(
                     "Поле: eventDate. Ошибка: должно содержать дату, не ранее чем через %s часа. Значение: "
                             + time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")), hoursPlus));
         }
     }
 
     private Event checkEventByOwnerAndEventId(Long eventId, Long userId) {
-        return jpaEventRepository.findByIdAndInitiatorId(userId, eventId).orElseThrow(
+        return jpaEventRepository.findEventByIdAndInitiatorId(eventId, userId).orElseThrow(
                 () -> new ObjectNotFoundExceptionCust("Событие с id = " + eventId + " с инициатором с id = " + userId +
                         " не существует"));
     }
 
-    private void eventUpdater(Event event, Map.Entry<String, Object> entry) {
-        Object object = entry.getValue();
+    private void eventUpdater(Event event, UpdateEventUserRequest updateEventUserRequest, String fieldName) {
 
-        switch (entry.getKey()) {
+        switch (fieldName) {
             case "annotation":
-                String annotation = (String) object;
+                String annotation = updateEventUserRequest.getAnnotation();
                 if (!annotation.isBlank()) {
                     event.setAnnotation(annotation);
                 }
                 break;
             case "category":
-                Category category = categoryService.checkCategoryById(((Category) object).getId());
+                Category category = categoryService.checkCategoryById(updateEventUserRequest.getCategory());
                 event.setCategory(category);
                 break;
             case "description":
-                String description = (String) object;
+                String description = updateEventUserRequest.getDescription();
                 if (!description.isBlank()) {
                     event.setDescription(description);
                 }
                 break;
             case "eventDate":
-                LocalDateTime eventDate = (LocalDateTime) object;
+                LocalDateTime eventDate = updateEventUserRequest.getEventDate();
                 checkDateTimeInFuture(eventDate, 2);
                 event.setEventDate(eventDate);
                 break;
             case "location":
-                assert object instanceof LocationDto;
-                Location location = locationService.prepareLocation((LocationDto) object);
+                Location location = locationService.prepareLocation(updateEventUserRequest.getLocation());
                 event.setLocation(location);
                 break;
             case "paid":
-                event.setPaid((Boolean) object);
+                event.setPaid(updateEventUserRequest.getPaid());
                 break;
             case "participantLimit":
-                assert object instanceof Integer;
-                event.setParticipantLimit((Integer) object);
+                event.setParticipantLimit(updateEventUserRequest.getParticipantLimit());
                 break;
             case "requestModeration":
-                assert object instanceof Boolean;
-                event.setRequestModeration((Boolean) object);
+                event.setRequestModeration(updateEventUserRequest.getRequestModeration());
                 break;
             case "stateAction":
-                assert object instanceof StateAction;
-                StateAction stateAction = (StateAction) object;
+                StateAction stateAction = updateEventUserRequest.getStateAction();
                 switch (stateAction) {
                     case SEND_TO_REVIEW:
                         event.setState(EventState.PENDING);
@@ -294,6 +297,57 @@ public class EventServiceImpl implements EventService {
                     case CANCEL_REVIEW:
                         event.setState(EventState.CANCELED);
                         break;
+                }
+                break;
+            case "title":
+                String title = updateEventUserRequest.getTitle();
+                if (!title.isBlank()) {
+                    event.setTitle(title);
+                }
+                break;
+        }
+    }
+
+    private void eventUpdaterAdmin(Event event, UpdateEventAdminRequest updateEventAdminRequest, String fieldName) {
+
+        switch (fieldName) {
+            case "annotation":
+                String annotation = updateEventAdminRequest.getAnnotation();
+                if (!annotation.isBlank()) {
+                    event.setAnnotation(annotation);
+                }
+                break;
+            case "category":
+                Category category = categoryService.checkCategoryById(updateEventAdminRequest.getCategory());
+                event.setCategory(category);
+                break;
+            case "description":
+                String description = updateEventAdminRequest.getDescription();
+                if (!description.isBlank()) {
+                    event.setDescription(description);
+                }
+                break;
+            case "eventDate":
+                LocalDateTime eventDate = updateEventAdminRequest.getEventDate();
+                checkDateTimeInFuture(eventDate, 1);
+                event.setEventDate(eventDate);
+                break;
+            case "location":
+                Location location = locationService.prepareLocation(updateEventAdminRequest.getLocation());
+                event.setLocation(location);
+                break;
+            case "paid":
+                event.setPaid(updateEventAdminRequest.getPaid());
+                break;
+            case "participantLimit":
+                event.setParticipantLimit(updateEventAdminRequest.getParticipantLimit());
+                break;
+            case "requestModeration":
+                event.setRequestModeration(updateEventAdminRequest.getRequestModeration());
+                break;
+            case "stateAction":
+                StateAction stateAction = updateEventAdminRequest.getStateAction();
+                switch (stateAction) {
                     case PUBLISH_EVENT:
                         checkIfEventIsCanceled(event);
                         checkIfEventIsAlreadyPublished(event);
@@ -307,7 +361,7 @@ public class EventServiceImpl implements EventService {
                 }
                 break;
             case "title":
-                String title = (String) object;
+                String title = updateEventAdminRequest.getTitle();
                 if (!title.isBlank()) {
                     event.setTitle(title);
                 }
@@ -359,8 +413,12 @@ public class EventServiceImpl implements EventService {
         resultSpecification.add(eventStatusIn(requestParamsAdmin.getStates()));
         resultSpecification.add(initiatorIdIn(requestParamsAdmin.getUsers()));
         resultSpecification.add(categoryIn(requestParamsAdmin.getCategories()));
-        resultSpecification.add(eventDateInRange(requestParamsAdmin.getRangeStart(), requestParamsAdmin.getRangeEnd()));
-        resultSpecification.add(isAvailable(requestParamsAdmin.isOnlyAvailable()));
+//        resultSpecification.add(eventDateInRange(requestParamsAdmin.getRangeStart(), requestParamsAdmin.getRangeEnd()));
+
+        resultSpecification.add(eventDateBeforeOrEqual(requestParamsAdmin.getRangeEnd()));
+        resultSpecification.add(eventDateAfterOrEqual(requestParamsAdmin.getRangeStart()));
+
+//        resultSpecification.add(isAvailable(requestParamsAdmin.isOnlyAvailable()));
         return resultSpecification.stream().filter(Objects::nonNull).collect(Collectors.toList());
     }
 
@@ -417,24 +475,6 @@ public class EventServiceImpl implements EventService {
         return eventViews.get(eventId);
     }
 
-    private void updateEventState(StateAction stateAction, Event event) {
-        if (stateAction == null) {
-            return;
-        }
-        switch (stateAction) {
-            case PUBLISH_EVENT:
-                checkIfEventIsCanceled(event);
-                checkIfEventIsAlreadyPublished(event);
-                event.setState(EventState.PUBLISHED);
-                event.setPublishedDate(LocalDateTime.now());
-                break;
-            case REJECT_EVENT:
-                checkIfEventIsAlreadyPublished(event);
-                event.setState(EventState.CANCELED);
-                break;
-        }
-    }
-
     private void checkIfEventIsCanceled(Event event) {
         if (event.getState().equals(EventState.CANCELED)) {
             throw new ConflictException("Нельзя опубликовать отмененное событие");
@@ -444,6 +484,15 @@ public class EventServiceImpl implements EventService {
     private void checkIfEventIsAlreadyPublished(Event event) {
         if (event.getState().equals(EventState.PUBLISHED)) {
             throw new ConflictException("Событие уже опубликовано");
+        }
+    }
+
+    @Override
+    public Long getViewsForEvent(Long eventId, Map<Long, Long> views) {
+        if (views.isEmpty() || !views.containsKey(eventId)) {
+            return 0L;
+        } else {
+            return views.get(eventId);
         }
     }
 }

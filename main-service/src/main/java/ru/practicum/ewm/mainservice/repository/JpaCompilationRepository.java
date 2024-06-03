@@ -8,7 +8,7 @@ import ru.practicum.ewm.mainservice.model.Compilation;
 import java.util.Optional;
 
 public interface JpaCompilationRepository extends JpaRepository<Compilation, Long>, JpaSpecificationExecutor<Compilation> {
-    @Query("select c from compilations c " +
+    @Query("select c from Compilation c " +
             "left join fetch c.events e " +
             "left join fetch e.category " +
             "left join fetch e.initiator where c.id = ?1")
