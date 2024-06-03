@@ -27,5 +27,5 @@ public class EventRequestParamsAdmin {
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime rangeEnd;
 
-    private boolean onlyAvailable;
+    private boolean onlyAvailable = true;
 }

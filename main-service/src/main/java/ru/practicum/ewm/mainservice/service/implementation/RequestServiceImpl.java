@@ -2,6 +2,7 @@ package ru.practicum.ewm.mainservice.service.implementation;
 
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.ewm.mainservice.dto.request.ParticipationRequestDto;
 import ru.practicum.ewm.mainservice.enums.EventState;
 import ru.practicum.ewm.mainservice.enums.RequestStatus;
@@ -51,6 +52,7 @@ public class RequestServiceImpl implements RequestService {
     }
 
     @Override
+    @Transactional
     public ParticipationRequestDto create(Long userId, Long eventId) {
         User user = userService.checkUserById(userId);
 

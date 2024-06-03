@@ -8,6 +8,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.ewm.mainservice.StatsClient;
 import ru.practicum.ewm.mainservice.dto.event.*;
 import ru.practicum.ewm.mainservice.dto.request.EventRequestStatusUpdateRequest;
@@ -106,6 +107,7 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
+    @Transactional
     public EventRequestStatusUpdateResult updateStatusRequest(Long userId, Long eventId,
                                                               EventRequestStatusUpdateRequest inputUpdate) {
         userService.checkUserById(userId);
@@ -162,6 +164,10 @@ public class EventServiceImpl implements EventService {
                 .map(RequestMapper::participationRequestToDto)
                 .collect(Collectors.toList()));
 
+        if (!result.getConfirmedRequests().isEmpty()) {
+            event.setConfirmedRequests(event.getConfirmedRequests() + result.getConfirmedRequests().size());
+        }
+
         return result;
     }
 
@@ -206,12 +212,21 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
+    @Transactional
     public List<EventFullDto> getEventsAdmin(EventRequestParamsAdmin requestParamsAdmin, int from, int size) {
         PageRequest pageRequest = PageRequest.of(from / size, size, Sort.by(Sort.Direction.ASC, "id"));
         List<Specification<Event>> specifications = requestParamsAdminToSpecifications(requestParamsAdmin);
-        List<Event> events = jpaEventRepository.findAll(
-                specifications.stream().reduce(Specification::and).orElse(null),
-                pageRequest).getContent();
+        Specification<Event> eventSpecification = specifications.stream().reduce(Specification::and).orElse(null);
+
+        List<Event> events;
+
+//        if (eventSpecification == null) {
+//            events = jpaEventRepository.findAll(pageRequest).getContent();
+//        } else {
+            events = jpaEventRepository.findAll(eventSpecification, pageRequest).getContent();
+//        }
+
+
         List<EventFullDto> result = events.stream().map(EventMapper::eventToEventFullDto).collect(Collectors.toList());
 
         List<Long> eventsResultIds = result.stream().map(EventFullDto::getId).collect(Collectors.toList());
@@ -413,10 +428,10 @@ public class EventServiceImpl implements EventService {
         resultSpecification.add(eventStatusIn(requestParamsAdmin.getStates()));
         resultSpecification.add(initiatorIdIn(requestParamsAdmin.getUsers()));
         resultSpecification.add(categoryIn(requestParamsAdmin.getCategories()));
-//        resultSpecification.add(eventDateInRange(requestParamsAdmin.getRangeStart(), requestParamsAdmin.getRangeEnd()));
+        resultSpecification.add(eventDateInRange(requestParamsAdmin.getRangeStart(), requestParamsAdmin.getRangeEnd()));
 
-        resultSpecification.add(eventDateBeforeOrEqual(requestParamsAdmin.getRangeEnd()));
-        resultSpecification.add(eventDateAfterOrEqual(requestParamsAdmin.getRangeStart()));
+//        resultSpecification.add(eventDateAfterOrEqual(requestParamsAdmin.getRangeStart()));
+//        resultSpecification.add(eventDateBeforeOrEqual(requestParamsAdmin.getRangeEnd()));
 
 //        resultSpecification.add(isAvailable(requestParamsAdmin.isOnlyAvailable()));
         return resultSpecification.stream().filter(Objects::nonNull).collect(Collectors.toList());
