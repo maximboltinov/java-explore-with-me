@@ -10,11 +10,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 import ru.practicum.ewm.mainservice.StatsClient;
-import ru.practicum.ewm.mainservice.dto.event.EventFullDto;
-import ru.practicum.ewm.mainservice.dto.event.EventRequestParams;
-import ru.practicum.ewm.mainservice.dto.event.NewEventDto;
-import ru.practicum.ewm.mainservice.dto.event.UpdateEventUserRequest;
+import ru.practicum.ewm.mainservice.dto.event.*;
 import ru.practicum.ewm.mainservice.dto.location.LocationDto;
 import ru.practicum.ewm.mainservice.dto.request.EventRequestStatusUpdateRequest;
 import ru.practicum.ewm.mainservice.dto.request.ParticipationRequestDto;
@@ -27,21 +25,23 @@ import ru.practicum.ewm.mainservice.exception.custom.ObjectNotFoundExceptionCust
 import ru.practicum.ewm.mainservice.model.*;
 import ru.practicum.ewm.mainservice.repository.JpaEventRepository;
 import ru.practicum.ewm.mainservice.service.*;
+import ru.practicum.ewm.stats.statsdto.EndpointHit;
 
-import javax.servlet.*;
-import javax.servlet.http.*;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.security.Principal;
+import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
+import static ru.practicum.ewm.mainservice.enums.EventState.CANCELED;
+import static ru.practicum.ewm.mainservice.enums.EventState.PENDING;
+import static ru.practicum.ewm.mainservice.enums.SortType.VIEWS;
+import static ru.practicum.ewm.mainservice.enums.StateAction.REJECT_EVENT;
 
 @ExtendWith(MockitoExtension.class)
 class EventServiceImplTest {
@@ -59,6 +59,8 @@ class EventServiceImplTest {
     private RequestService requestService;
     @Mock
     private StatsClient statsClient;
+
+    private HttpServletRequest request = mock(HttpServletRequest.class);
 
     private final EasyRandom generator = new EasyRandom();
 
@@ -176,7 +178,7 @@ class EventServiceImplTest {
         updateEventUserRequest.setEventDate(LocalDateTime.now().plusHours(1));
 
         Event event = generator.nextObject(Event.class);
-        event.setState(EventState.PENDING);
+        event.setState(PENDING);
 
         when(userService.checkUserById(anyLong()))
                 .thenReturn(new User());
@@ -195,7 +197,7 @@ class EventServiceImplTest {
         updateEventUserRequest.setCategory(1L);
 
         Event event = generator.nextObject(Event.class);
-        event.setState(EventState.PENDING);
+        event.setState(PENDING);
 
         Category category = Category.builder().id(1L).name("category").build();
 
@@ -376,358 +378,18 @@ class EventServiceImplTest {
 
     @Test
     void getFilteredEvents() {
+        Event event = generator.nextObject(Event.class);
         EventRequestParams eventRequestParams = generator.nextObject(EventRequestParams.class);
-        eventRequestParams.setRangeStart(LocalDateTime.now().plusDays(5));
-        eventRequestParams.setRangeEnd(LocalDateTime.now().plusDays(3));
+        eventRequestParams.setSort(VIEWS);
+        Page<Event> eventPage = Page.empty();
+        eventPage.and(event);
 
 
+        when(jpaEventRepository.findAll(any(Specification.class), any(PageRequest.class)))
+                .thenReturn(eventPage);
+        doNothing().when(statsClient).create(any(EndpointHit.class));
 
-        assertThrows(IncorrectParametersException.class, () -> eventService.getFilteredEvents(eventRequestParams, 0, 10, new HttpServletRequest() {
-            @Override
-            public Object getAttribute(String s) {
-                return null;
-            }
-
-            @Override
-            public Enumeration<String> getAttributeNames() {
-                return null;
-            }
-
-            @Override
-            public String getCharacterEncoding() {
-                return null;
-            }
-
-            @Override
-            public void setCharacterEncoding(String s) throws UnsupportedEncodingException {
-
-            }
-
-            @Override
-            public int getContentLength() {
-                return 0;
-            }
-
-            @Override
-            public long getContentLengthLong() {
-                return 0;
-            }
-
-            @Override
-            public String getContentType() {
-                return null;
-            }
-
-            @Override
-            public ServletInputStream getInputStream() throws IOException {
-                return null;
-            }
-
-            @Override
-            public String getParameter(String s) {
-                return null;
-            }
-
-            @Override
-            public Enumeration<String> getParameterNames() {
-                return null;
-            }
-
-            @Override
-            public String[] getParameterValues(String s) {
-                return new String[0];
-            }
-
-            @Override
-            public Map<String, String[]> getParameterMap() {
-                return null;
-            }
-
-            @Override
-            public String getProtocol() {
-                return null;
-            }
-
-            @Override
-            public String getScheme() {
-                return null;
-            }
-
-            @Override
-            public String getServerName() {
-                return null;
-            }
-
-            @Override
-            public int getServerPort() {
-                return 0;
-            }
-
-            @Override
-            public BufferedReader getReader() throws IOException {
-                return null;
-            }
-
-            @Override
-            public String getRemoteAddr() {
-                return null;
-            }
-
-            @Override
-            public String getRemoteHost() {
-                return null;
-            }
-
-            @Override
-            public void setAttribute(String s, Object o) {
-
-            }
-
-            @Override
-            public void removeAttribute(String s) {
-
-            }
-
-            @Override
-            public Locale getLocale() {
-                return null;
-            }
-
-            @Override
-            public Enumeration<Locale> getLocales() {
-                return null;
-            }
-
-            @Override
-            public boolean isSecure() {
-                return false;
-            }
-
-            @Override
-            public RequestDispatcher getRequestDispatcher(String s) {
-                return null;
-            }
-
-            @Override
-            public String getRealPath(String s) {
-                return null;
-            }
-
-            @Override
-            public int getRemotePort() {
-                return 0;
-            }
-
-            @Override
-            public String getLocalName() {
-                return null;
-            }
-
-            @Override
-            public String getLocalAddr() {
-                return null;
-            }
-
-            @Override
-            public int getLocalPort() {
-                return 0;
-            }
-
-            @Override
-            public ServletContext getServletContext() {
-                return null;
-            }
-
-            @Override
-            public AsyncContext startAsync() throws IllegalStateException {
-                return null;
-            }
-
-            @Override
-            public AsyncContext startAsync(ServletRequest servletRequest, ServletResponse servletResponse) throws IllegalStateException {
-                return null;
-            }
-
-            @Override
-            public boolean isAsyncStarted() {
-                return false;
-            }
-
-            @Override
-            public boolean isAsyncSupported() {
-                return false;
-            }
-
-            @Override
-            public AsyncContext getAsyncContext() {
-                return null;
-            }
-
-            @Override
-            public DispatcherType getDispatcherType() {
-                return null;
-            }
-
-            @Override
-            public String getAuthType() {
-                return null;
-            }
-
-            @Override
-            public Cookie[] getCookies() {
-                return new Cookie[0];
-            }
-
-            @Override
-            public long getDateHeader(String s) {
-                return 0;
-            }
-
-            @Override
-            public String getHeader(String s) {
-                return null;
-            }
-
-            @Override
-            public Enumeration<String> getHeaders(String s) {
-                return null;
-            }
-
-            @Override
-            public Enumeration<String> getHeaderNames() {
-                return null;
-            }
-
-            @Override
-            public int getIntHeader(String s) {
-                return 0;
-            }
-
-            @Override
-            public String getMethod() {
-                return null;
-            }
-
-            @Override
-            public String getPathInfo() {
-                return null;
-            }
-
-            @Override
-            public String getPathTranslated() {
-                return null;
-            }
-
-            @Override
-            public String getContextPath() {
-                return null;
-            }
-
-            @Override
-            public String getQueryString() {
-                return null;
-            }
-
-            @Override
-            public String getRemoteUser() {
-                return null;
-            }
-
-            @Override
-            public boolean isUserInRole(String s) {
-                return false;
-            }
-
-            @Override
-            public Principal getUserPrincipal() {
-                return null;
-            }
-
-            @Override
-            public String getRequestedSessionId() {
-                return null;
-            }
-
-            @Override
-            public String getRequestURI() {
-                return null;
-            }
-
-            @Override
-            public StringBuffer getRequestURL() {
-                return null;
-            }
-
-            @Override
-            public String getServletPath() {
-                return null;
-            }
-
-            @Override
-            public HttpSession getSession(boolean b) {
-                return null;
-            }
-
-            @Override
-            public HttpSession getSession() {
-                return null;
-            }
-
-            @Override
-            public String changeSessionId() {
-                return null;
-            }
-
-            @Override
-            public boolean isRequestedSessionIdValid() {
-                return false;
-            }
-
-            @Override
-            public boolean isRequestedSessionIdFromCookie() {
-                return false;
-            }
-
-            @Override
-            public boolean isRequestedSessionIdFromURL() {
-                return false;
-            }
-
-            @Override
-            public boolean isRequestedSessionIdFromUrl() {
-                return false;
-            }
-
-            @Override
-            public boolean authenticate(HttpServletResponse httpServletResponse) throws IOException, ServletException {
-                return false;
-            }
-
-            @Override
-            public void login(String s, String s1) throws ServletException {
-
-            }
-
-            @Override
-            public void logout() throws ServletException {
-
-            }
-
-            @Override
-            public Collection<Part> getParts() throws IOException, ServletException {
-                return null;
-            }
-
-            @Override
-            public Part getPart(String s) throws IOException, ServletException {
-                return null;
-            }
-
-            @Override
-            public <T extends HttpUpgradeHandler> T upgrade(Class<T> aClass) throws IOException, ServletException {
-                return null;
-            }
-        }));
+        eventService.getFilteredEvents(eventRequestParams, 0, 10, request);
     }
 
     @Test
@@ -736,5 +398,25 @@ class EventServiceImplTest {
 
     @Test
     void updateEventAdmin() {
+        UpdateEventAdminRequest updateEventAdminRequest = generator.nextObject(UpdateEventAdminRequest.class);
+        updateEventAdminRequest.setStateAction(REJECT_EVENT);
+        updateEventAdminRequest.setEventDate(LocalDateTime.now().plusDays(5));
+        Event event = generator.nextObject(Event.class);
+        event.setState(PENDING);
+        Category category = generator.nextObject(Category.class);
+        Location location = generator.nextObject(Location.class);
+
+        when(jpaEventRepository.findById(anyLong()))
+                .thenReturn(Optional.of(event));
+        when(categoryService.checkCategoryById(updateEventAdminRequest.getCategory()))
+                .thenReturn(category);
+        when(locationService.prepareLocation(updateEventAdminRequest.getLocation()))
+                .thenReturn(location);
+        when(jpaEventRepository.save(event))
+                .thenReturn(event);
+
+        EventFullDto eventFullDto = eventService.updateEventAdmin(1L, updateEventAdminRequest);
+
+        assertEquals(CANCELED, eventFullDto.getState());
     }
 }

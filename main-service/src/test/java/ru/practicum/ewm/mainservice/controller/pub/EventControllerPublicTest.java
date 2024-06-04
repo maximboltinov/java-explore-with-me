@@ -38,6 +38,7 @@ class EventControllerPublicTest {
     @Test
     void getEvents_incorrectRequest_httpStatusBadRequest() {
         EventRequestParams eventRequestParams = generator.nextObject(EventRequestParams.class);
+        eventRequestParams.setPaid(false);
 
         mockMvc.perform(get("/events")
                         .param("from", "-1")
