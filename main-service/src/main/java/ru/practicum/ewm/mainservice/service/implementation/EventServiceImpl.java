@@ -121,8 +121,7 @@ public class EventServiceImpl implements EventService {
                 requestService.getRequestsByEventIdAndIdsAndStatus(
                         eventId, inputUpdate.getRequestIds(), RequestStatus.PENDING);
 
-        int confirmedRequestsCount = requestService.countByEventIdAndStatus(eventId, RequestStatus.CONFIRMED);
-
+        int confirmedRequestsCount = event.getConfirmedRequests();
 
         switch (inputUpdate.getStatus()) {
             case CONFIRMED:
@@ -166,6 +165,7 @@ public class EventServiceImpl implements EventService {
 
         if (!result.getConfirmedRequests().isEmpty()) {
             event.setConfirmedRequests(event.getConfirmedRequests() + result.getConfirmedRequests().size());
+            jpaEventRepository.save(event);
         }
 
         return result;

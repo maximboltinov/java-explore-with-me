@@ -8,31 +8,35 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import ru.practicum.ewm.mainservice.StatsClient;
+import ru.practicum.ewm.mainservice.dto.event.EventFullDto;
 import ru.practicum.ewm.mainservice.dto.event.NewEventDto;
 import ru.practicum.ewm.mainservice.dto.event.UpdateEventUserRequest;
 import ru.practicum.ewm.mainservice.dto.location.LocationDto;
+import ru.practicum.ewm.mainservice.dto.request.EventRequestStatusUpdateRequest;
+import ru.practicum.ewm.mainservice.dto.request.ParticipationRequestDto;
 import ru.practicum.ewm.mainservice.enums.EventState;
+import ru.practicum.ewm.mainservice.enums.RequestStatus;
 import ru.practicum.ewm.mainservice.enums.StateAction;
 import ru.practicum.ewm.mainservice.exception.custom.ConflictException;
 import ru.practicum.ewm.mainservice.exception.custom.IncorrectParametersException;
 import ru.practicum.ewm.mainservice.exception.custom.ObjectNotFoundExceptionCust;
-import ru.practicum.ewm.mainservice.model.Category;
-import ru.practicum.ewm.mainservice.model.Event;
-import ru.practicum.ewm.mainservice.model.Location;
-import ru.practicum.ewm.mainservice.model.User;
+import ru.practicum.ewm.mainservice.model.*;
 import ru.practicum.ewm.mainservice.repository.JpaEventRepository;
 import ru.practicum.ewm.mainservice.service.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class EventServiceImplTest {
@@ -224,19 +228,145 @@ class EventServiceImplTest {
     }
 
     @Test
-    void getEventsByUserId() {
+    void getEventsByUserId_userNotFound_ObjectNotFoundExceptionCust() {
+        when(userService.checkUserById(anyLong()))
+                .thenThrow(new ObjectNotFoundExceptionCust(""));
+
+        assertThrows(ObjectNotFoundExceptionCust.class,
+                () -> eventService.getEventsByUserId(1L, 0, 10));
+
+        verify(jpaEventRepository, never()).findAll(any(PageRequest.class));
     }
 
     @Test
-    void getEvent() {
+    void getEventsByUserId_correct() {
+        when(jpaEventRepository.findAll(any(PageRequest.class)))
+                .thenReturn(Page.empty());
+
+        eventService.getEventsByUserId(1L, 0, 10);
+
+        verify(jpaEventRepository).findAll(any(PageRequest.class));
     }
 
     @Test
-    void getRequestByEventAndOwner() {
+    void getEvent_eventNotFound_ObjectNotFoundExceptionCust() {
+        when(jpaEventRepository.findEventByIdAndInitiatorId(anyLong(), anyLong()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(ObjectNotFoundExceptionCust.class, () -> eventService.getEvent(1L, 1L));
     }
 
     @Test
-    void updateStatusRequest() {
+    void getEvent_correct() {
+        Event event = generator.nextObject(Event.class);
+
+        when(jpaEventRepository.findEventByIdAndInitiatorId(anyLong(), anyLong()))
+                .thenReturn(Optional.of(event));
+
+        EventFullDto result = eventService.getEvent(1L, 1L);
+
+        assertEquals(event.getConfirmedRequests(), result.getConfirmedRequests());
+        assertEquals(event.getEventDate(), result.getEventDate());
+        assertEquals(event.getId(), result.getId());
+    }
+
+    @Test
+    void getRequestByEventAndOwner_checkEventByOwnerAndEventId_ObjectNotFoundExceptionCust() {
+        when(jpaEventRepository.findEventByIdAndInitiatorId(anyLong(), anyLong()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(ObjectNotFoundExceptionCust.class,
+                () -> eventService.getRequestByEventAndOwner(1L, 1L));
+    }
+
+    @Test
+    void getRequestByEventAndOwner_correct() {
+        ParticipationRequest request = generator.nextObject(ParticipationRequest.class);
+
+        when(jpaEventRepository.findEventByIdAndInitiatorId(anyLong(), anyLong()))
+                .thenReturn(Optional.of(new Event()));
+
+        when(requestService.getRequestsByEventId(anyLong()))
+                .thenReturn(List.of(request));
+
+        List<ParticipationRequestDto> result = eventService.getRequestByEventAndOwner(1L, 1L);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void updateStatusRequest_confirmationIsNotRequired_ConflictException() {
+        Event event = generator.nextObject(Event.class);
+        event.setId(1L);
+        event.setRequestModeration(false);
+        event.setParticipantLimit(0);
+
+        when(jpaEventRepository.findEventByIdAndInitiatorId(1L, 1L))
+                .thenReturn(Optional.of(event));
+
+        assertThrows(ConflictException.class,
+                () -> eventService.updateStatusRequest(1L, 1L, new EventRequestStatusUpdateRequest()));
+
+        verify(requestService, never()).saveAll(anyList());
+    }
+
+    @Test
+    void updateStatusRequest_limitHasBeenReached_ConflictException() {
+        Event event = generator.nextObject(Event.class);
+        event.setId(1L);
+        event.setRequestModeration(true);
+        event.setParticipantLimit(20);
+        event.setConfirmedRequests(20);
+
+        EventRequestStatusUpdateRequest toUpdate = new EventRequestStatusUpdateRequest();
+        toUpdate.setStatus(RequestStatus.CONFIRMED);
+        toUpdate.setRequestIds(Set.of(1L, 2L));
+
+        ParticipationRequest participationRequest1 = generator.nextObject(ParticipationRequest.class);
+        ParticipationRequest participationRequest2 = generator.nextObject(ParticipationRequest.class);
+
+        List<ParticipationRequest> requestsForUpdate = List.of(participationRequest1, participationRequest2);
+
+        when(jpaEventRepository.findEventByIdAndInitiatorId(1L, 1L))
+                .thenReturn(Optional.of(event));
+
+        when(requestService.getRequestsByEventIdAndIdsAndStatus(event.getId(), toUpdate.getRequestIds(), RequestStatus.PENDING))
+                .thenReturn(requestsForUpdate);
+
+        assertThrows(ConflictException.class,
+                () -> eventService.updateStatusRequest(1L, 1L, toUpdate));
+
+        verify(requestService, never()).saveAll(anyList());
+    }
+
+    @Test
+    void updateStatusRequest_correct() {
+        Event event = generator.nextObject(Event.class);
+        event.setId(1L);
+        event.setRequestModeration(true);
+        event.setParticipantLimit(20);
+        event.setConfirmedRequests(10);
+
+        EventRequestStatusUpdateRequest toUpdate = new EventRequestStatusUpdateRequest();
+        toUpdate.setStatus(RequestStatus.CONFIRMED);
+        toUpdate.setRequestIds(Set.of(1L, 2L));
+
+        ParticipationRequest participationRequest1 = generator.nextObject(ParticipationRequest.class);
+        ParticipationRequest participationRequest2 = generator.nextObject(ParticipationRequest.class);
+
+        List<ParticipationRequest> requestsForUpdate = List.of(participationRequest1, participationRequest2);
+
+        when(jpaEventRepository.findEventByIdAndInitiatorId(1L, 1L))
+                .thenReturn(Optional.of(event));
+
+        when(requestService.getRequestsByEventIdAndIdsAndStatus(
+                event.getId(), toUpdate.getRequestIds(), RequestStatus.PENDING))
+                .thenReturn(requestsForUpdate);
+
+        eventService.updateStatusRequest(1L, 1L, toUpdate);
+
+        verify(requestService).saveAll(anyList());
+        verify(jpaEventRepository).save(event);
     }
 
     @Test
@@ -248,26 +378,6 @@ class EventServiceImplTest {
     }
 
     @Test
-    void getEventsAdmin() {
-    }
-
-    @Test
     void updateEventAdmin() {
-    }
-
-    @Test
-    void loadShortEventsViewsNumber() {
-    }
-
-    @Test
-    void checkEvent() {
-    }
-
-    @Test
-    void testUpdateEvent() {
-    }
-
-    @Test
-    void getEventViewsNumber() {
     }
 }
