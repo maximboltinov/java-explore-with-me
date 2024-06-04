@@ -11,10 +11,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface JpaStatRepository extends JpaRepository<Stat, Long> {
-    @Query("SELECT new ru.practicum.ewm.stats.statsdto.ViewStats(" +
+    @Query("SELECT new ru.practicum.ewm.stats.statsdto.ViewStats( " +
             "st.app, " +
             "st.uri, " +
-            "CAST(COUNT(DISTINCT st.ip) AS int)) " +
+            "CAST(COUNT(DISTINCT st.ip) AS long)) " +
             "FROM Stat st " +
             "WHERE st.timestamp BETWEEN :start AND :end " +
             "AND st.uri IN :uris " +
@@ -24,10 +24,10 @@ public interface JpaStatRepository extends JpaRepository<Stat, Long> {
                                                        @Param("end") LocalDateTime end,
                                                        @Param("uris") List<String> uris);
 
-    @Query("SELECT new ru.practicum.ewm.stats.statsdto.ViewStats(" +
+    @Query("SELECT new ru.practicum.ewm.stats.statsdto.ViewStats( " +
             "st.app, " +
             "st.uri, " +
-            "CAST(COUNT(st.ip) AS int)) " +
+            "CAST(COUNT(st.ip) AS long)) " +
             "FROM Stat st " +
             "WHERE st.timestamp BETWEEN :start AND :end " +
             "AND st.uri IN :uris " +
@@ -37,10 +37,10 @@ public interface JpaStatRepository extends JpaRepository<Stat, Long> {
                                                           @Param("end") LocalDateTime end,
                                                           @Param("uris") List<String> uris);
 
-    @Query("SELECT new ru.practicum.ewm.stats.statsdto.ViewStats(" +
+    @Query("SELECT new ru.practicum.ewm.stats.statsdto.ViewStats( " +
             "st.app, " +
             "st.uri, " +
-            "CAST(COUNT(DISTINCT st.ip) AS int)) " +
+            "CAST(COUNT(DISTINCT st.ip) AS long)) " +
             "FROM Stat st " +
             "WHERE st.timestamp BETWEEN :start AND :end " +
             "GROUP BY st.app, st.uri " +
@@ -48,10 +48,10 @@ public interface JpaStatRepository extends JpaRepository<Stat, Long> {
     Optional<List<ViewStats>> getStatsByWithoutUriAndUniqueIp(@Param("start") LocalDateTime start,
                                                               @Param("end") LocalDateTime end);
 
-    @Query("SELECT new ru.practicum.ewm.stats.statsdto.ViewStats(" +
+    @Query("SELECT new ru.practicum.ewm.stats.statsdto.ViewStats( " +
             "st.app, " +
             "st.uri, " +
-            "CAST(COUNT(st.ip) AS int)) " +
+            "CAST(COUNT(st.ip) AS long)) " +
             "FROM Stat st " +
             "WHERE st.timestamp BETWEEN :start AND :end " +
             "GROUP BY st.app, st.uri " +

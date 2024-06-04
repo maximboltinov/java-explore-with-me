@@ -8,5 +8,4 @@ CREATE TABLE IF NOT EXISTS statistics
     ip      VARCHAR(39)                             NOT NULL,
     created TIMESTAMP                               NOT NULL,
     CONSTRAINT pk_statistics PRIMARY KEY (id)
---     CONSTRAINT uq_statistics UNIQUE (app, uri, ip, created)
 );
